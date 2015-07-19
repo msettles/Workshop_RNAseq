@@ -5,8 +5,8 @@ library("edgeR")
 # 2. Set up the experiment
 samples <- read.table("samples.txt",header=T,as.is=T)
 # Set up how you'll print the sample_id and condition variables, based on the samples.txt sheet
-sample_id = apply(samples[,c("SAMPLE_ID")],1,function(x) paste(na.exclude(x),collapse=".")) 
-condition = apply(samples[,c("treatment")],1,function(x) paste(na.exclude(x),collapse=".")) 
+sample_id = samples$SAMPLE_ID 
+condition = samples$treatment
 
 folder = "04-HTseqCounts"
 results = "05-edgeR"
@@ -37,7 +37,7 @@ colnames(counts) = samples$SAMPLE_ID
 
 # 5. Create a DGEList object (edgeR's container for RNA-seq count data):
 d = DGEList(counts=counts, group=condition)
-# 6. Estimate normalization factors using:
+# 6. Estimate normalization factors using, RNA composition and adjust for read depth:
 d = calcNormFactors(d)
 # 7. Inspect the relationships between samples using a multidimensional scaling (MDS) plot, as shown in Figure 4:
 pdf(file.path(results,"MDS-edgeR.pdf"))
@@ -45,33 +45,33 @@ plotMDS(d, labels=sample_id,
         col = rainbow(length(levels(factor(condition))))[factor(condition)],cex=0.6, main="MDS")
 dev.off()
 
-# 8. Estimate tagwise dispersion (simple design) using:
-d = estimateCommonDisp(d)
-d = estimateTagwiseDisp(d)
-# 9. plot the mean-variance relationship:
-pdf(file.path(results,"mean.variance-edgeR.pdf"))
-plotMeanVar(d, show.tagwise.vars=TRUE, NBline=TRUE,main="MeanVar")
-plotBCV(d,main="BCV")
-dev.off()
-
-# edgeR —c omplex design
-# 10. Create a design matrix to specify the factors that are expected to affect
+# edgeR - using glm
+# 8. Create a design matrix to specify the factors that are expected to affect
 # expression levels:
 design = model.matrix( ~ treatment, samples) ## samples is your sample sheet, treatment is a column in the sample sheet
 design
 ### Here it is pH6 - pH2.5 (so positive fold change indicates higher expression in Normal, negative is higher in Affected)
 
-# 11. Estimate dispersion values, relative to the design matrix, using the Cox-Reid (CR)-adjusted likelihood
-d2 = estimateGLMTrendedDisp(d, design)
+# 9. Estimate dispersion values, relative to the design matrix, using the Cox-Reid (CR)-adjusted likelihood
+d2 = estimateGLMCommonDisp(d, design)
+d2 = estimateGLMTrendedDisp(d2, design)
 d2 = estimateGLMTagwiseDisp(d2, design)
 
-# 12. Given the design matrix and dispersion estimates, fit a GLM to each feature:
+# 10. plot the mean-variance relationship:
+pdf(file.path(results,"mean.variance-edgeR.pdf"))
+# Plot the relationship between mean expression and variance of expression
+plotMeanVar(d2, show.tagwise.vars=TRUE, NBline=TRUE,main="MeanVar")
+# Plot the Biological Coefficient of Variation (as opposed to technical coefficient of variation)
+plotBCV(d2,main="BCV")
+dev.off()
+
+# 11. Given the design matrix and dispersion estimates, fit a GLM to each feature:
 f = glmFit(d2, design)
 
-# 13. Perform a likelihood ratio test, specifying the difference of interest
+# 12. Perform a likelihood ratio test, specifying the difference of interest
 de = glmLRT(f, coef=2) ## Treatment coefficient
 
-# 14. Use the topTags function to present a tabular summary of the differential expression statistics
+# 13. Use the topTags function to present a tabular summary of the differential expression statistics
 tt = topTags(de, n=nrow(d)) ## all tags, sorted
 head(tt$table) ## Check result
 table(tt$table$FDR< 0.05) ## the number of "Statistically Differentially Expressed Genes" at an FDR of 0.05
@@ -87,9 +87,7 @@ pdf(file.path(results,"smear-edgeR.pdf"))
 plotSmear(d, de.tags=deg,main="Smear")
 dev.off()
 
-
 # 17. Save the result table as a CSV file:
-
 write.table(tt$table,file=file.path(results,"toptags_edgeR.annotated.txt"),sep="\t",row.names=T,col.names=T,quote=F)
 
 ### if you have annotation
