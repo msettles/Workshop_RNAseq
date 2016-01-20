@@ -1,2 +1,2 @@
-# Workshop_RNAseq_Piracicaba2015
-RNAseq workshop in Piracicaba, Brazil July 17-19 2015
+# Workshop_RNAseq
+RNAseq workshop 
