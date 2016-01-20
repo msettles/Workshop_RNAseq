@@ -51,7 +51,7 @@ output <- mclapply(samples,
 
 
 dir.create("Reference")
-## Get Reference Genome:
+## Get Reference Genome from Ensembl:
 file2get = "ftp://ftp.ensemblgenomes.org/pub/fungi/release-27/fasta/exophiala_dermatitidis_nih_ut8656/dna/Exophiala_dermatitidis_nih_ut8656.GCA_000230625.1.27.dna.toplevel.fa.gz"
 download.file(file2get,file.path("Reference",basename(file2get)))
 system(paste("gunzip",file.path("Reference",basename(file2get))))
